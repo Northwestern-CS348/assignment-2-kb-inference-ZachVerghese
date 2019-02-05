@@ -117,6 +117,43 @@ class KnowledgeBase(object):
             return []
 
     def kb_retract(self, fact_or_rule):
+        if isinstance(fact_or_rule,Fact):
+            afact = self._get_fact(fact_or_rule)
+            if len(fact_or_rule.supported_by) == 0:
+                self.kb_remove(afact)
+            fact_or_rule.asserted=False
+                
+    def kb_remove(self, fact_or_rule):
+        if isinstance(fact_or_rule,Fact):
+            if len(fact_or_rule.supported_by) ==0:
+                self.facts.remove(fact_or_rule)
+                for thefact in fact_or_rule.supports_facts:
+                    for pair1 in thefact.supported_by:
+                        if fact_or_rule in pair1:
+                            thefact.supported_by.remove(pair1)
+                    self.kb_remove(thefact)
+                for therule in fact_or_rule.supports_rules:
+                    for pair1 in therule.supported_by:
+                        if fact_or_rule in pair1:
+                            therule.supported_by.remove(pair1)
+                    self.kb_remove(therule)
+        if isinstance(fact_or_rule,Rule):
+            if len(fact_or_rule.supported_by) ==0:
+                if fact_or_rule.asserted ==False:
+                    self.rules.remove(fact_or_rule)
+                for therule in fact_or_rule.supports_rules:
+                    for pair2 in therule.supported_by:
+                        if fact_or_rule in pair2:
+                            therule.supported_by.remove(pair2)
+                    self.kb_remove(therule)
+                for thefact in fact_or_rule.supports_facts:
+                    for pair1 in thefact.supported_by:
+                        if fact_or_rule in pair1:
+                            thefact.supported_by.remove(pair1)
+                    self.kb_remove(thefact)
+        
+
+            
         """Retract a fact from the KB
 
         Args:
@@ -132,6 +169,25 @@ class KnowledgeBase(object):
 
 class InferenceEngine(object):
     def fc_infer(self, fact, rule, kb):
+        statementlist= []
+        if match(fact.statement,rule.lhs[0]):
+            mybinding = match(fact.statement,rule.lhs[0])
+            if len(rule.lhs) > 1:
+                for part in rule.lhs[1:]:
+                    this = instantiate(part,mybinding)
+                    statementlist.append(this)
+                rhs = instantiate(rule.rhs, mybinding)
+                newRule = Rule([statementlist,rhs],[[fact,rule]])
+                kb.kb_add(newRule)
+                fact.supports_rules.append(kb._get_rule(newRule))
+                rule.supports_rules.append(kb._get_rule(newRule))
+                therule = kb._get_fact(newRule)
+            else:
+                newfact = Fact(instantiate(rule.rhs,mybinding),[[fact,rule]])
+                kb.kb_add(newfact)
+                fact.supports_facts.append(kb._get_fact(newfact))
+                rule.supports_facts.append(kb._get_fact(newfact))                
+                    
         """Forward-chaining to infer new facts and rules
 
         Args:
